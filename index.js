@@ -15,11 +15,18 @@ const blogSchema = mongoose.Schema({
 const Blog = mongoose.model('Blog', blogSchema)
 
 const mongoUrl = process.env.MONGODB_URI
-console.log(mongoUrl)
+
 
 //'mongodb://localhost/bloglist'
+console.log('Connecting to database')
+
 mongoose.connect(mongoUrl)
-return mongoose.connection.close()
+  .then(() => {
+    console.log('Connected to the database')
+  })
+  .catch(error => {
+    console.log('Error connecting to the database', error.message)
+  })
 
 app.use(cors())
 app.use(express.json())
