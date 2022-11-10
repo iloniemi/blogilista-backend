@@ -1,5 +1,5 @@
 require('dotenv').config()
-const http = require('http')
+const {info, error} = require('./utils/logger')
 const express = require('express')
 const app = express()
 const cors = require('cors')
@@ -18,14 +18,14 @@ const mongoUrl = process.env.MONGODB_URI
 
 
 //'mongodb://localhost/bloglist'
-console.log('Connecting to database')
+info('Connecting to database')
 
 mongoose.connect(mongoUrl)
   .then(() => {
-    console.log('Connected to the database')
+    info('Connected to the database')
   })
   .catch(error => {
-    console.log('Error connecting to the database', error.message)
+    info('Error connecting to the database', error.message)
   })
 
 app.use(cors())
@@ -51,5 +51,5 @@ app.post('/api/blogs', (request, response) => {
 
 const PORT = 3003
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  info(`Server running on port ${PORT}`)
 })
