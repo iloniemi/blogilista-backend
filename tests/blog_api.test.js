@@ -139,7 +139,7 @@ describe('With some initial blogs', () => {
       expect(updatedBlog.likes).toBe(originalBlog.likes + 1)
     })
 
-    test('error 204 with no changes for using wrong id', async () => {
+    test('error 404 with no changes for using non-existent id', async () => {
       const originalBlogs = await helper.blogsInDb()
       const originalBlog = originalBlogs[0]
       const changedBlog = {
@@ -147,10 +147,10 @@ describe('With some initial blogs', () => {
         likes: originalBlog.likes + 1
       }
 
-      const badId = await helper.nonExistingId
+      const nonExistentId = await helper.nonExistingId
 
       await api
-        .put(`/api/blogs/${badId}`)
+        .put(`/api/blogs/${nonExistentId}`)
         .send(changedBlog)
         .expect(400)
 
@@ -161,6 +161,14 @@ describe('With some initial blogs', () => {
       const blogAfter = blogsAfter.find(blog => blog.id === originalBlog.id)
       expect(blogAfter).toEqual(originalBlog)
     })
+  })
+
+  test('test-helper', async () => {
+    const id = await helper.nonExistingId()
+    console.log('id on ', id)
+
+    const blogsAfter = await helper.blogsInDb()
+    expect(blogsAfter).toHaveLength(helper.initialBlogs.length)
   })
 })
 
