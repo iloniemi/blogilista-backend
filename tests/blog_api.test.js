@@ -4,6 +4,8 @@ const app = require('../app')
 const api = supertest(app)
 const Blog = require('../models/blog')
 const helper = require('./test_helper')
+const bcrypt = require('bcrypt')
+const User = require('../models/user')
 
 describe('With some initial blogs', () => {
   beforeEach(async () => {
@@ -139,7 +141,7 @@ describe('With some initial blogs', () => {
       expect(updatedBlog.likes).toBe(originalBlog.likes + 1)
     })
 
-    test('error 404 with no changes for using non-existent id', async () => {
+    test('error 400 with no changes for using non-existent id', async () => {
       const originalBlogs = await helper.blogsInDb()
       const originalBlog = originalBlogs[0]
       const changedBlog = {
@@ -149,10 +151,12 @@ describe('With some initial blogs', () => {
 
       const nonExistentId = await helper.nonExistingId
 
-      await api
+      const result = await api
         .put(`/api/blogs/${nonExistentId}`)
         .send(changedBlog)
         .expect(400)
+
+      expect(result.text).toBe('{"error":"bad id"}')
 
       // No changes
       const blogsAfter = await helper.blogsInDb()
@@ -169,6 +173,131 @@ describe('With some initial blogs', () => {
 
     const blogsAfter = await helper.blogsInDb()
     expect(blogsAfter).toHaveLength(helper.initialBlogs.length)
+  })
+})
+
+describe('One initial user in the db', () => {
+  beforeEach(async () => {
+    await User.deleteMany({})
+
+    const passwordHash = await bcrypt.hash('salasana123', 10)
+    const user = new User({ username: 'hessu', name: 'Hiiri', passwordHash })
+
+    await user.save()
+  })
+
+  test('new user can be added', async () => {
+    const usersAtStart = await helper.usersInDb()
+
+    const newUser = {
+      username: 'taavi',
+      name: 'Taavi Tiivi',
+      password: 'salasnana'
+    }
+
+    await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
+    const usersAtEnd = await helper.usersInDb()
+    expect(usersAtEnd).toHaveLength(usersAtStart.length + 1)
+
+    const usernames = usersAtEnd.map(user => user.username)
+    expect(usernames).toContain(newUser.username)
+  })
+
+  describe('Attempt to create new user with bad data fails with correct error code and msg', () => {
+
+    test('Username is already in the db', async () => {
+      const usersAtStart = await helper.usersInDb()
+
+      const newUser = {
+        username: 'hessu',
+        name: 'Taavi Tiivi',
+        password: 'salasnana',
+        blogs: []
+      }
+
+      const  result = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-Type', /application\/json/)
+
+      expect(result.body.error).toContain('username must be unique')
+
+      const usersAtEnd = await helper.usersInDb()
+      expect(usersAtEnd).toHaveLength(usersAtStart.length)
+    })
+
+    test('Too short username error 400 and msg', async () => {
+      const newUser = {
+        username: 'ta',
+        name: 'Taavi Tiivi',
+        password: 'salasnana',
+        blogs: []
+      }
+
+      const result = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+
+      expect(result.body.error).toBe('User validation failed: username: Username must be at least 3 characters long.')
+    })
+
+    test('Too short password error 400 and msg', async () => {
+      const newUser = {
+        username: 'taavi',
+        name: 'Taavi Tiivi',
+        password: 'sa'
+      }
+
+      const result = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+
+      expect(result.body.error).toBe('User validation failed: password: Password must be at least 3 characters long')
+    })
+  })
+
+
+  test('GET all returns the array containing the one initial user', async () => {
+    const result = await api
+      .get('/api/users')
+      .expect(200)
+
+    const returnedUsers = result.body
+    expect(returnedUsers).toHaveLength(1)
+    expect(returnedUsers[0].username).toBe('hessu')
+  })
+
+  test('POST blog adds ids referencing each other to the blog and the author', async () => {
+    //const user = User.find({})
+    const newBlog = {
+      title: 'CoolTitle',
+      author: 'Cool Test Author',
+      url: 'coolexample.com',
+      likes: 123
+    }
+
+    const result = await api
+      .post('/api/blogs')
+      .send(newBlog)
+      .expect(201)
+      .expect('Content-Type', /application\/json/)
+
+    const createdBlog = result.body
+    const userAfter = await User.findById(createdBlog.user) // Change to user._id when possible
+    const userBlogsAfter = userAfter.blogs.map(b => b.toString())
+    console.log('blogit!!!!!!!!!', userBlogsAfter)
+
+
+    expect(userBlogsAfter).toContain(createdBlog.id)
+    expect(createdBlog.user).toBe(userAfter._id.toString())
   })
 })
 
