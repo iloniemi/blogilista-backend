@@ -13,7 +13,7 @@ usersRouter.post('/', async (request, response) => {
   }
 
   if (password.length < 3) {
-    response.status(400).json({
+    return response.status(400).json({
       error: 'User validation failed: password: Password must be at least 3 characters long'
     })
   }
